@@ -4,12 +4,18 @@ import {
   View,
   Text,
   Dimensions,
-  AppRegistry
+  AppRegistry,
+  ListView,
+  Image
 } from 'react-native';
+import Spinner from 'react-native-loading-spinner-overlay';
 import MapView from 'react-native-maps';
 import flagBlueImg from './assets/flag-blue.png';
 import flagPinkImg from './assets/flag-pink.png';
 import pb from './assets/pb.png';
+
+import ScrollableTabView, {DefaultTabBar, } from 'react-native-scrollable-tab-view';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,23 +25,18 @@ const LONGITUDE = 78.356849;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 const SPACE = 0.01;
+const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2})
 
 export default class AwesomeProject extends Component {
+
   constructor(props) {
     super(props);
     this.state = {
-      marker1: true,
-      marker2: true,
-      markers:[  
-        {latlang : {latitude:17.462210, longitude:78.356849}},
-        {latlang : {latitude:17.460605, longitude:78.353548}},
-        {latlang : {latitude:17.469795, longitude:78.359106}},       
-      ],
       currentLat:0,
       currentLong:0,
-      offers: [
-              
-            ]
+      offers: [],
+      dataSource: ds.cloneWithRows([]),
+      loading:true
     };
   }
 
@@ -51,10 +52,10 @@ export default class AwesomeProject extends Component {
       
     );
 
-    fetch('http://54.67.44.199:3000/api/Offers?filter={"include":"offerProvider"}')
+    fetch('http://54.67.44.199/api/Offers?filter={"include":"offerProvider"}')
       .then((response) => response.json())
       .then((offers) => {
-        this.setState({offers})
+        this.setState({offers,dataSource: ds.cloneWithRows(offers),loading:false})
       })
       .catch((error) => {
         console.error(error);
@@ -67,10 +68,36 @@ export default class AwesomeProject extends Component {
   }
 
   render() {
-    return (
-      <View style={styles.container}>
 
 
+    if(this.state.loading){
+        return (
+      <View style={{ flex: 1 }}>
+        <Spinner visible={this.state.loading} />
+      </View>
+    );
+    }else
+    
+      return (
+       
+
+          <ScrollableTabView
+      style={{marginTop: 20, }}
+      renderTabBar={() => <DefaultTabBar />}>
+
+      <ListView
+        tabLabel="List"
+        dataSource={this.state.dataSource}
+        renderRow={(data) => 
+          <View style={styles.listViewItemContainer}>
+           <Image source={{ uri: 'http://smilz.net/wp-content/uploads/2013/08/Offers.jpg'}} style={styles.photo} />
+            <Text style={styles.text} key={data.id}>{data.OfferName}</Text>
+          </View>
+        }
+        enableEmptySections={true} />
+
+
+    <View style={styles.container} tabLabel="Map">
         <MapView
           provider={this.props.provider}
           style={styles.map}
@@ -80,6 +107,7 @@ export default class AwesomeProject extends Component {
             latitudeDelta: LATITUDE_DELTA,
             longitudeDelta: LONGITUDE_DELTA,
           }}
+          fitToElements={true}
         >
         {this.state.offers.map(offer => (
           <MapView.Marker
@@ -88,17 +116,28 @@ export default class AwesomeProject extends Component {
               latitude: offer.offerProvider.Lat,
               longitude: offer.offerProvider.Lang,
             }}
-            centerOffset={{ x: -18, y: -60 }}
-            anchor={{ x: 0.69, y: 1 }}
-            image={flagBlueImg}
-            title={offer.offerProvider.Name}
-          >
             
+            
+
+            title={offer.offerProvider.Name}
+            key={offer.id}
+          >
+            <MapView.Callout style={styles.plainView}>
+
+              <View>
+                <Text>{offer.OfferName}-{offer.offerProvider.Name}{offer.offerProvider.Address} </Text>
+              </View>
+            </MapView.Callout>
           </MapView.Marker>
         ))}
         </MapView>
       </View>
-    );
+
+
+
+      </ScrollableTabView>
+        )
+    
   }
 }
 
@@ -111,6 +150,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
     alignItems: 'center',
+
+  },
+  listViewItemContainer :{
+    flex: 1,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   map: {
     ...StyleSheet.absoluteFillObject,
@@ -120,6 +166,18 @@ const styles = StyleSheet.create({
     marginTop: 33,
     fontWeight: 'bold',
   },
+  text: {
+    marginLeft: 12,
+    fontSize: 16,
+  },
+  photo: {
+    height: 40,
+    width: 40,
+    borderRadius: 20,
+  },
+  plainView: {
+    width: 200,
+  }
 });
 
 AppRegistry.registerComponent('AwesomeProject', () => AwesomeProject);
